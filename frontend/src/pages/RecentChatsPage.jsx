@@ -1,9 +1,8 @@
-
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { gsap } from "gsap";
 import { Search, MessageSquare, Trash2, ChevronRight, X, Clock } from "lucide-react";
 import { api } from "../services/api";
- 
+
 function formatRelativeTime(isoStr) {
   if (!isoStr) return "";
   const diff = Date.now() - new Date(isoStr).getTime();
@@ -16,23 +15,23 @@ function formatRelativeTime(isoStr) {
   if (days < 7) return `${days}d ago`;
   return new Date(isoStr).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 }
- 
+
 function ChatDetailPanel({ session, onClose }) {
   const panelRef = useRef(null);
   const messagesEndRef = useRef(null);
- 
+
   useEffect(() => {
     gsap.fromTo(panelRef.current, { x: "100%", opacity: 0 }, { x: 0, opacity: 1, duration: 0.35, ease: "power3.out" });
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
- 
+
   const close = () => {
     gsap.to(panelRef.current, {
       x: "100%", opacity: 0, duration: 0.25, ease: "power2.in",
       onComplete: onClose,
     });
   };
- 
+
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 50,
@@ -66,7 +65,7 @@ function ChatDetailPanel({ session, onClose }) {
             <X size={18} />
           </button>
         </div>
- 
+
         {/* Messages */}
         <div style={{ flex: 1, overflowY: "auto", padding: "var(--space-2) var(--space-3)", display: "flex", flexDirection: "column", gap: 12 }}>
           {(session.messages || []).map((msg, i) => (
@@ -95,8 +94,8 @@ function ChatDetailPanel({ session, onClose }) {
     </div>
   );
 }
- 
-export default function RecentChatsPage() {
+
+function EmptyState() {
   return (
     <div style={{
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
@@ -108,9 +107,9 @@ export default function RecentChatsPage() {
     </div>
   );
 }
- 
+
 export default function RecentChatsPage() {
- 
+
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -118,7 +117,7 @@ export default function RecentChatsPage() {
   const [deleting, setDeleting] = useState(null);
   const headerRef = useRef(null);
   const listRef = useRef(null);
- 
+
   const loadSessions = useCallback(async () => {
     try {
       const data = await api.listChats();
@@ -129,9 +128,9 @@ export default function RecentChatsPage() {
       setLoading(false);
     }
   }, []);
- 
+
   useEffect(() => { loadSessions(); }, [loadSessions]);
- 
+
   useEffect(() => {
     if (loading) return;
     const tl = gsap.timeline();
@@ -142,7 +141,7 @@ export default function RecentChatsPage() {
       }, "-=0.2");
     }
   }, [loading]);
- 
+
   const openSession = useCallback(async (session) => {
     if (session.messages) { setActiveSession(session); return; }
     try {
@@ -152,7 +151,7 @@ export default function RecentChatsPage() {
       setActiveSession(session);
     }
   }, []);
- 
+
   const deleteSession = useCallback(async (e, sessionId) => {
     e.stopPropagation();
     setDeleting(sessionId);
@@ -165,11 +164,11 @@ export default function RecentChatsPage() {
       setDeleting(null);
     }
   }, []);
- 
+
   const filtered = sessions.filter((s) =>
     s.title.toLowerCase().includes(search.toLowerCase())
   );
- 
+
   return (
     <div style={{ padding: "var(--space-5) var(--space-4)", maxWidth: 720, position: "relative" }}>
       <div ref={headerRef} style={{ marginBottom: "var(--space-4)", opacity: 0 }}>
@@ -179,7 +178,7 @@ export default function RecentChatsPage() {
         <p style={{ fontSize: "var(--font-size-md)", color: "var(--color-text-muted)" }}>
           {sessions.length} saved conversation{sessions.length !== 1 ? "s" : ""}
         </p>
- 
+
         {/* Search */}
         <div style={{ position: "relative", marginTop: "var(--space-2)" }}>
           <Search size={14} style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "var(--color-text-muted)" }} />
@@ -203,13 +202,13 @@ export default function RecentChatsPage() {
           />
         </div>
       </div>
- 
+
       {loading && (
         <div style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>Loading chats…</div>
       )}
- 
+
       {!loading && sessions.length === 0 && <EmptyState />}
- 
+
       {!loading && sessions.length > 0 && (
         <div ref={listRef} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {filtered.map((s) => (
@@ -244,7 +243,7 @@ export default function RecentChatsPage() {
               }}>
                 <MessageSquare size={16} color="var(--color-text-muted)" />
               </div>
- 
+
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{
                   fontSize: "var(--font-size-sm)", fontWeight: "var(--font-weight-medium)",
@@ -263,7 +262,7 @@ export default function RecentChatsPage() {
                   <span>{s.msg_count} messages</span>
                 </div>
               </div>
- 
+
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                 <button
                   onClick={(e) => deleteSession(e, s.session_id)}
@@ -283,7 +282,7 @@ export default function RecentChatsPage() {
               </div>
             </div>
           ))}
- 
+
           {filtered.length === 0 && search && (
             <p style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)", textAlign: "center", padding: "var(--space-4)" }}>
               No chats matching "{search}"
@@ -291,12 +290,10 @@ export default function RecentChatsPage() {
           )}
         </div>
       )}
- 
+
       {activeSession && (
         <ChatDetailPanel session={activeSession} onClose={() => setActiveSession(null)} />
       )}
     </div>
   );
 }
- 
-
