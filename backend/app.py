@@ -37,9 +37,50 @@ def create_app():
         strict_transport_security=not is_dev,
         strict_transport_security_max_age=31536000,
         content_security_policy={
-            "default-src": "'none'",
-            "frame-ancestors": "'none'",
-        },
+    "default-src": ["'self'"],
+
+    "script-src": [
+        "'self'",
+        "'unsafe-inline'",
+        "https://apis.google.com",
+        "https://accounts.google.com",
+        "https://www.gstatic.com",
+    ],
+
+    "style-src": [
+        "'self'",
+        "'unsafe-inline'",
+        "https://fonts.googleapis.com",
+    ],
+
+    "font-src": [
+        "'self'",
+        "https://fonts.gstatic.com",
+        "https://api.fontshare.com",
+    ],
+
+    "connect-src": [
+        "'self'",
+        "https://*.googleapis.com",
+        "https://*.firebaseio.com",
+        "https://identitytoolkit.googleapis.com",
+        "https://securetoken.googleapis.com",
+        "https://firestore.googleapis.com",
+        "https://apis.google.com",
+    ],
+
+    "img-src": [
+        "'self'",
+        "data:",
+        "https:",
+    ],
+
+    "frame-src": [
+        "https://accounts.google.com",
+    ],
+
+    "frame-ancestors": ["'none'"],
+}
         referrer_policy="strict-origin-when-cross-origin",
         content_security_policy_nonce_in=["script-src"],
     )
