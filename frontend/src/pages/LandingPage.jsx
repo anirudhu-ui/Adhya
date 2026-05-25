@@ -762,7 +762,7 @@ export default function LandingPage() {
         transition={{ duration: 0.8 }}
       >
         <span>© 2026 Adhya — INSURANCE ADVISOR</span>
-        <span> By ~ Anirudh Upadhyay & D. Adhyumna Chowdary </span>
+        <span>By ~ Anirudh Upadhyay</span>
         <span>HYDERABAD · INDIA</span>
         <Link to="/privacy" style={{ color: "inherit", opacity: 0.5, fontSize: "10px", letterSpacing: "0.1em", textDecoration: "none" }}>
           PRIVACY POLICY
