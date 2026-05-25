@@ -33,7 +33,7 @@ def create_app():
     is_dev = os.environ.get("FLASK_ENV", "production") == "development"
     Talisman(
         app,
-        force_https=not is_dev,
+        force_https=False,
         strict_transport_security=not is_dev,
         strict_transport_security_max_age=31536000,
         content_security_policy={
