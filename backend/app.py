@@ -80,7 +80,7 @@ def create_app():
     ],
 
     "frame-ancestors": ["'none'"],
-}
+},
         referrer_policy="strict-origin-when-cross-origin",
         content_security_policy_nonce_in=["script-src"],
     )
