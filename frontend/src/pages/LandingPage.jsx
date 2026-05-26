@@ -424,7 +424,7 @@ export default function LandingPage() {
       >
         <div className="stats-grid">
           {[
-            { Icon: Users, end: "10k+", label: "Users Trust Adhya" },
+            { Icon: Users, end: "10k+", label: "Users Supported " },
             { Icon: Clock, end: "24/7", label: " Support Available" },
             { Icon: Shield, end: "100%", label: "Privacy Protected" }
           ].map((stat, idx) => (
