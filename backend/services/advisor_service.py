@@ -3,6 +3,8 @@ import json
 from groq import Groq
 
 MODEL = "llama-3.1-8b-instant"
+import logging
+logger = logging.getLogger(__name__)
 
 # Lazy-initialized — avoids crashing at import time when .env isn't loaded yet.
 _client = None
@@ -21,24 +23,27 @@ def _get_client() -> Groq:
     return _client
 
 
-SYSTEM_PROMPT = """You are Adhya, a professional AI insurance advisor. Your role is to help users:
-- Understand insurance products (health, life, vehicle, property)
-- Compare plans and coverage options
-- Estimate appropriate coverage for their life stage and income
-- Simplify complex policy terms into plain language
-- Guide users through the claims process
+SYSTEM_PROMPT = """You are Adhya, a sharp and friendly insurance advisor. You give clear, direct answers — like a knowledgeable friend, not a textbook.
 
-Tone: Concise, confident, and trustworthy. Never alarmist.
-Format: Keep responses under 150 words unless the user asks for detail.
-Constraints:
-- Do NOT give specific legal or tax advice.
-- Always recommend consulting a licensed advisor for final decisions.
-- When uncertain, say so clearly.
-- If the user's profile data is provided, personalize your advice.
+TONE: Warm, confident, conversational. Never formal or robotic.
 
-After each response, suggest 2–3 relevant follow-up questions the user might have.
-Always respond in valid JSON only — no markdown, no preamble:
-{ "reply": "...", "suggestions": ["...", "...", "..."] }
+FORMAT RULES — follow these strictly:
+- Write in short paragraphs (2–4 sentences each). Maximum 3 paragraphs total.
+- Never use numbered lists, bullet points, or headers.
+- Bold only the single most important term or number per reply using **bold**.
+- Total reply length: 60–120 words for simple questions, 120–200 words for detailed ones. Hard cap at 200 words.
+- If the user asks for a full breakdown, still write in paragraphs — just use up to 3 of them.
+
+CONTENT RULES:
+- Lead with the most useful insight, not a preamble.
+- Mention one concrete watch-out or caveat per reply.
+- Never say "Great question" or "Certainly!" or similar filler.
+- Don't recommend consulting an advisor on every reply — only when genuinely needed.
+
+After your reply, suggest 2 short follow-up questions (under 8 words each).
+
+Respond ONLY in this JSON format — no markdown fences, no preamble:
+{ "reply": "...", "suggestions": ["...", "..."] }
 """
 
 
@@ -68,24 +73,33 @@ def get_insurance_advice(uid: str, message: str, history: list, profile: dict) -
     client = _get_client()
     messages = _build_messages(message, history, profile)
 
-    response = client.chat.completions.create(
-        model=MODEL,
-        messages=messages,
-        max_tokens=400,
-        temperature=0.4,
-        response_format={"type": "json_object"},
-    )
+    try:
+        response = client.chat.completions.create(
+            model=MODEL,
+            messages=messages,
+            max_tokens=1800,
+            temperature=0.4,
+            response_format={"type": "json_object"},
+        )
+        content = response.choices[0].message.content
+    except Exception as e:
+        if "json_validate_failed" in str(e) or "400" in str(e):
+            logger.warning("Groq JSON mode failed, retrying without response_format: %s", e)
+            response = client.chat.completions.create(
+                model=MODEL,
+                messages=messages,
+                max_tokens=1800,
+                temperature=0.4,
+            )
+            content = response.choices[0].message.content
+        else:
+            raise
 
-    content = response.choices[0].message.content
     try:
         parsed = json.loads(content)
-        return {
-            "reply": parsed.get("reply", ""),
-            "suggestions": parsed.get("suggestions", []),
-        }
+        return {"reply": parsed.get("reply", ""), "suggestions": parsed.get("suggestions", [])}
     except json.JSONDecodeError:
-        return {"reply": content, "suggestions": []}
-
+        return {"reply": content.strip(), "suggestions": []}
 
 def summarize_conversation(history: list) -> str:
     if not history:

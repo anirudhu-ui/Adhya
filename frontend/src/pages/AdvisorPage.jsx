@@ -4,11 +4,13 @@ import { Send, RotateCcw } from "lucide-react";
 import { useAdvisor } from "../hooks/useAdvisor";
 import { useVoice } from "../hooks/useVoice";
 import { useSubscription } from "../context/SubscriptionContext";
+import { useAuth } from "../context/AuthContext";
 import { VoiceOrb } from "../components/voice/VoiceOrb";
 import { VoiceTranscript } from "../components/voice/VoiceTranscript";
 import { MessageBubble } from "../components/voice/MessageBubble";
 import { Button } from "../components/ui/Button";
 import { api } from "../services/api";
+import { useLocation } from "react-router-dom";
 
 // Cryptographically strong session ID (fixes F-11)
 function genSessionId() {
@@ -47,10 +49,42 @@ function LimitBanner({ remaining }) {
 export default function AdvisorPage() {
   const { messages, loading, error, sendMessage, clearConversation, setProfile } = useAdvisor();
   const { remaining, syncUsage, decrementRemaining } = useSubscription();
+  const { user } = useAuth();
+  const location = useLocation();
 
   const [inputText, setInputText]   = useState("");
   const [sessionId]                 = useState(genSessionId);
   const [limitError, setLimitError] = useState(null);
+  const [planBanner, setPlanBanner] = useState(null); // shown above input when coming from Plans page
+  const populatedRef                = useRef(false);
+
+  // Fetch user profile from backend and inject into advisor context
+  useEffect(() => {
+    if (!user) return;
+    api.getProfile().then((data) => {
+      if (data?.profile) setProfile(data.profile);
+    }).catch(() => {});
+  }, [user, setProfile]);
+
+  // Pre-populate textarea with the prompt passed from Plans page (runs once).
+  // We do NOT auto-send — the user should read and optionally edit first.
+  useEffect(() => {
+    const autoMsg  = location.state?.autoMessage;
+    const planName = location.state?.planName;
+    if (!autoMsg || populatedRef.current) return;
+    populatedRef.current = true;
+    setInputText(autoMsg);
+    if (planName) setPlanBanner(planName);
+    // Focus textarea and place cursor at end once the value has rendered
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+        const len = inputRef.current.value.length;
+        inputRef.current.setSelectionRange(len, len);
+      }
+    }, 60);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const messagesEndRef = useRef(null);
   const inputRef       = useRef(null);
@@ -99,25 +133,27 @@ export default function AdvisorPage() {
     return () => clearTimeout(t);
   }, [messages, sessionId]);
 
-  const handleSend = async () => {
-    const text = inputText.trim();
-    if (!text || loading) return;
+  // Core send logic — accepts an explicit text so auto-send works even
+  // before inputText state is populated
+  const handleSendText = async (text) => {
+    const trimmed = text?.trim();
+    if (!trimmed || loading) return;
     if (remaining <= 0) { setLimitError("limit"); return; }
 
     setInputText("");
     setLimitError(null);
-    decrementRemaining(); // optimistic
+    decrementRemaining();
 
     try {
-      await sendMessage(text);
-      // useAdvisor calls api.chat internally; sync usage from next status refresh
-      // For immediate accuracy, call refresh — or rely on decrementRemaining
+      await sendMessage(trimmed);
     } catch (err) {
       if (err?.code === "message_limit_reached") setLimitError("limit");
     }
 
     inputRef.current?.focus();
   };
+
+  const handleSend = () => handleSendText(inputText);
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
@@ -235,6 +271,34 @@ export default function AdvisorPage() {
         }}
       >
         <VoiceTranscript transcript={transcript} isListening={isListening} />
+
+        {/* Plan context banner — shown when navigated from Plans page */}
+        {planBanner && (
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            gap: 8,
+            padding: "8px 12px",
+            background: "rgba(245,158,11,0.06)",
+            border: "1px solid rgba(245,158,11,0.15)",
+            borderRadius: "var(--radius-md)",
+            fontSize: "var(--font-size-sm)",
+          }}>
+            <span style={{ color: "var(--color-text-secondary)" }}>
+              <span style={{ color: "#f59e0b", fontWeight: 600, marginRight: 4 }}>✦</span>
+              Asking about <strong style={{ color: "var(--color-text-primary)" }}>{planBanner}</strong>
+              {" — "}edit or send the prompt below
+            </span>
+            <button
+              onClick={() => setPlanBanner(null)}
+              aria-label="Dismiss plan context banner"
+              style={{
+                background: "none", border: "none", cursor: "pointer",
+                color: "var(--color-text-muted)", fontSize: 16, lineHeight: 1,
+                padding: "0 2px", flexShrink: 0,
+              }}
+            >×</button>
+          </div>
+        )}
 
         <div style={{ display: "flex", alignItems: "center", gap: "var(--space-1)" }}>
           {/* Voice available to all users */}

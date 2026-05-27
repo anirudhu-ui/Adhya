@@ -51,58 +51,35 @@ def chat(uid):
             "limit": usage["limit"],
         }
         return jsonify(result), 200
+    except RuntimeError as e:
+        # Misconfiguration — missing API key etc.
+        logger.error("Advisor config error uid=%.8s: %s", uid, e)
+        return jsonify({"error": "advisor_unavailable", "reason": "configuration"}), 503
     except Exception as e:
+        err_str = str(e)
+        # Groq rate-limit passes through as an exception — surface it cleanly
+        if "rate_limit" in err_str.lower() or "429" in err_str:
+            logger.warning("Groq rate limit hit uid=%.8s: %s", uid, e)
+            return jsonify({"error": "advisor_unavailable", "reason": "rate_limit"}), 503
         logger.error("Groq advisor error uid=%.8s: %s", uid, e)
-        return jsonify({"error": "advisor_unavailable"}), 503
+        return jsonify({"error": "advisor_unavailable", "reason": "upstream"}), 503
 
 
 @advisor_bp.route("/plans", methods=["GET"])
-@limiter.limit("60 per minute")
+@limiter.limit("20 per minute")
 @require_firebase_token
 def get_plans(uid):
-    plans = [
-        {
-            "id": "plan_basic",
-            "name": "Essential Shield",
-            "category": "Health",
-            "monthly_premium": 149,
-            "coverage": 500_000,
-            "deductible": 5_000,
-            "highlights": ["Hospitalization", "Emergency care", "Generic medications"],
-            "recommended_for": "Individuals under 35, low-risk profile",
-        },
-        {
-            "id": "plan_pro",
-            "name": "ProGuard Plus",
-            "category": "Health + Life",
-            "monthly_premium": 289,
-            "coverage": 2_000_000,
-            "deductible": 2_500,
-            "highlights": [
-                "Comprehensive health",
-                "Term life ₹2Cr",
-                "Critical illness rider",
-                "Dental & Vision",
-            ],
-            "recommended_for": "Families, age 30–50",
-        },
-        {
-            "id": "plan_elite",
-            "name": "Apex Elite",
-            "category": "Health + Life + Investment",
-            "monthly_premium": 599,
-            "coverage": 5_000_000,
-            "deductible": 1_000,
-            "highlights": [
-                "Global health coverage",
-                "Whole life ₹5Cr",
-                "Investment component",
-                "Priority claims",
-            ],
-            "recommended_for": "High-net-worth individuals, executives",
-        },
-    ]
-    return jsonify({"plans": plans}), 200
+    from services.user_service import get_user_profile
+    from services.plans_service import fetch_personalized_plans
+
+    try:
+        profile_data = get_user_profile(uid)
+        profile = profile_data.get("profile", {})
+        plans = fetch_personalized_plans(profile)
+        return jsonify({"plans": plans, "personalized": bool(profile)}), 200
+    except Exception as e:
+        logger.error("Plans fetch error uid=%.8s: %s", uid, e)
+        return jsonify({"error": "plans_unavailable"}), 503
 
 
 @advisor_bp.route("/summary", methods=["POST"])

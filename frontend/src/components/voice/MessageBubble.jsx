@@ -1,6 +1,43 @@
 import React, { useEffect, useRef } from "react";
 import { gsap } from "gsap";
 
+/**
+ * Renders assistant reply text with minimal formatting:
+ * - **bold** → <strong>
+ * - Double newlines → paragraph breaks (small gap)
+ * - Single newlines → preserved
+ * No external markdown library needed.
+ */
+function FormattedText({ text }) {
+  if (!text) return null;
+
+  const paragraphs = text.split(/\n{2,}/);
+
+  return (
+    <>
+      {paragraphs.map((para, pi) => {
+        // Split on **bold** markers
+        const parts = para.split(/\*\*(.+?)\*\*/g);
+        return (
+          <p
+            key={pi}
+            style={{
+              margin: pi === 0 ? 0 : "8px 0 0",
+              lineHeight: 1.6,
+            }}
+          >
+            {parts.map((part, i) =>
+              i % 2 === 1
+                ? <strong key={i} style={{ color: "var(--color-text-primary)", fontWeight: 600 }}>{part}</strong>
+                : <span key={i}>{part}</span>
+            )}
+          </p>
+        );
+      })}
+    </>
+  );
+}
+
 export function MessageBubble({ message, onSuggestionClick }) {
   const ref = useRef(null);
   const isUser = message.role === "user";
@@ -51,12 +88,13 @@ export function MessageBubble({ message, onSuggestionClick }) {
           padding: "var(--space-1) var(--space-2)",
           fontSize: "var(--font-size-md)",
           color: "var(--color-text-primary)",
-          lineHeight: 1.6,
-          whiteSpace: "pre-wrap",
           wordBreak: "break-word",
         }}
       >
-        {message.content}
+        {isUser
+          ? <p style={{ margin: 0, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{message.content}</p>
+          : <FormattedText text={message.content} />
+        }
       </div>
 
       {/* Suggestions */}
